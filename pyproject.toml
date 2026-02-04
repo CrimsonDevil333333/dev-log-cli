@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dev-log-cli"
+version = "0.1.0"
+description = "A minimalist developer journaling CLI."
+readme = "README.md"
+authors = [{name = "Satyaa", email = "satyaa@openclaw.ai"}]
+license = {text = "MIT"}
+dependencies = [
+    "typer",
+    "rich",
+    "sqlite-utils"
+]
+
+[project.scripts]
+devlog = "devlog.cli:app"
