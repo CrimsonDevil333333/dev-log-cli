@@ -1,18 +1,23 @@
-# DevLog CLI 🦞 v2.0
+# DevLog CLI 🦞 v3.0
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 
 **DevLog** is a minimalist developer journaling CLI tool designed to help you keep track of your daily work, bugs, and ideas without leaving your terminal. Built with ❤️ by **Satyaa & Clawdy**.
 
-## New in v2.0 🌟
+## New in v3.0 🚀
 
-*   **Project & Status Tracking:** Categorize logs by project and track their status (todo, doing, done).
-*   **Activity Heatmap:** Visualize your consistency with a GitHub-style heatmap in `stats`.
-*   **Sync & Backup:** Easily sync your database to a private git repo or local path.
-*   **Improved Schema:** Faster search and better data structure.
+*   **Interactive Editing:** Use `devlog edit <id>` to update any field of a log entry.
+*   **Deletion:** Safely remove entries with `devlog delete <id>` (includes confirmation).
+*   **Detailed View:** Use `devlog view <id>` for a beautiful, full-width display of a single entry.
+*   **Enhanced Status System:**
+    *   Standardized statuses: `pending`, `completed`, `in-progress`, `none`.
+    *   Custom status support during `add` and `edit`.
+    *   **Status Summary:** The `list` command now shows a breakdown of statuses for the logs in view.
+*   **Stats Filtering:** Filter your activity metrics by project using `devlog stats --project <name>`.
+*   **Improved Search UI:** Search results are now more readable and detailed.
 
-## Features 🚀
+## Features 🌟
 
 *   **Fast Logging:** Add logs quickly with a single command.
 *   **Interactive Mode:** Don't like flags? Just run `devlog add` and type away.
@@ -45,7 +50,7 @@ pip install -e .
 ### 1. Add a Log
 Quick one-liner:
 ```bash
-devlog add "Fixed the infinite loop" --tags bug,fix --project api-server --status done
+devlog add "Fixed the infinite loop" --tags bug,fix --project api-server --status completed
 ```
 
 Or interactive mode:
@@ -54,39 +59,56 @@ devlog add
 # Prompts you for content, tags, project, and status
 ```
 
-### 2. List Logs
+### 2. List & View Logs
 View recent entries:
 ```bash
 devlog list
+```
+
+View a specific entry in detail:
+```bash
+devlog view 42
 ```
 
 Filter by tag, project, or status:
 ```bash
 devlog list --tag bug
 devlog list --project my-app
-devlog list --status todo
+devlog list --status pending
 ```
 
-### 3. Search
+### 3. Edit & Delete
+Modify an existing entry:
+```bash
+devlog edit 42
+```
+
+Delete an entry:
+```bash
+devlog delete 42
+```
+
+### 4. Search
 Find something specific across content, tags, project, or status:
 ```bash
 devlog search "login"
 ```
 
-### 4. Stats
+### 5. Stats
 See your productivity stats and activity heatmap:
 ```bash
 devlog stats
+devlog stats --project api-server
 ```
 
-### 5. Sync & Backup
+### 6. Sync & Backup
 Backup your logs to a local folder or a private git repository:
 ```bash
 devlog sync --path ~/backups/devlog
 devlog sync --repo https://github.com/username/my-private-devlogs.git
 ```
 
-### 6. Export
+### 7. Export
 Export your data:
 ```bash
 devlog export --format markdown --output my_journal.md

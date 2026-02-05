@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dev-log-cli"
-version = "0.1.0"
+version = "3.0.0"
 description = "A minimalist developer journaling CLI."
 readme = "README.md"
 authors = [{name = "Satyaa", email = "satyaa@openclaw.ai"}]
