@@ -1,9 +1,12 @@
 # DevLog CLI 🦞 v3.0
 
+![PyPI - Version](https://img.shields.io/pypi/v/dev-log-cli)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 
 **DevLog** is a minimalist developer journaling CLI tool designed to help you keep track of your daily work, bugs, and ideas without leaving your terminal. Built with ❤️ by **Satyaa & Clawdy**.
+
+**Status:** 🚀 Available on [PyPI](https://pypi.org/project/dev-log-cli/)
 
 ## New in v3.0 🚀
 
@@ -29,20 +32,18 @@
 
 ## Installation 📦
 
-It is recommended to use a virtual environment:
+### From PyPI (Recommended)
+```bash
+pip install dev-log-cli
+```
 
+### From Source
 ```bash
 git clone https://github.com/satyaa/dev-log-cli.git
 cd dev-log-cli
 python3 -m venv .venv
 source .venv/bin/activate
 pip install .
-```
-
-Or for development:
-
-```bash
-pip install -e .
 ```
 
 ## Usage 🛠️
