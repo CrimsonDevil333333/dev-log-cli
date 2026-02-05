@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,12 +8,24 @@ version = "3.0.0"
 description = "A minimalist developer journaling CLI."
 readme = "README.md"
 authors = [{name = "Satyaa", email = "satyaa@openclaw.ai"}]
-license = {text = "MIT"}
+license = "MIT"
 dependencies = [
     "typer",
     "rich",
     "sqlite-utils"
 ]
+keywords = ["journal", "cli", "developer", "productivity", "sqlite"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/CrimsonDevil333333/dev-log-cli"
+"Bug Tracker" = "https://github.com/CrimsonDevil333333/dev-log-cli/issues"
 
 [project.scripts]
 devlog = "devlog.cli:app"
