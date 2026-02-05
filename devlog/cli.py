@@ -6,9 +6,10 @@ from collections import Counter
 from rich.console import Console
 from rich.table import Table
 from rich.markdown import Markdown
-from rich.prompt import Prompt
+from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
 from sqlite_utils import Database
+import subprocess
 
 app = typer.Typer(help="DevLog: A minimalist developer journaling CLI 🦞")
 console = Console()
@@ -23,15 +24,31 @@ def get_db():
             "id": int,
             "content": str,
             "timestamp": str,
-            "tags": str
+            "tags": str,
+            "project": str,
+            "status": str
         }, pk="id")
-        db["logs"].enable_fts(["content", "tags"])
+        db["logs"].enable_fts(["content", "tags", "project", "status"], create_triggers=True)
+    else:
+        # Schema migration for existing table
+        columns = db["logs"].columns_dict
+        if "project" not in columns:
+            db["logs"].add_column("project", str)
+        if "status" not in columns:
+            db["logs"].add_column("status", str)
+        
+        # Ensure FTS covers new columns (re-enable if needed or just assume it might need update)
+        # For sqlite-utils, we can just re-enable to update triggers
+        db["logs"].enable_fts(["content", "tags", "project", "status"], create_triggers=True, replace=True)
+        
     return db
 
 @app.command()
 def add(
     content: str = typer.Argument(None, help="Log content (optional, triggers interactive mode if omitted)"),
-    tags: str = typer.Option("", help="Comma-separated tags")
+    tags: str = typer.Option("", help="Comma-separated tags"),
+    project: str = typer.Option("", help="Project name"),
+    status: str = typer.Option("", help="Status (e.g., todo, doing, done)")
 ):
     """
     Add a new log entry. Interactive mode if content is missing.
@@ -41,20 +58,28 @@ def add(
         content = Prompt.ask("📝 Log entry")
         if not tags:
             tags = Prompt.ask("🏷️  Tags (comma separated)", default="")
+        if not project:
+            project = Prompt.ask("📂 Project", default="")
+        if not status:
+            status = Prompt.ask("📊 Status", default="")
 
     db = get_db()
     db["logs"].insert({
         "content": content,
         "timestamp": datetime.now().isoformat(),
-        "tags": tags
+        "tags": tags,
+        "project": project,
+        "status": status
     })
-    console.print(f"[bold green]✓ Log saved![/bold green] (Tags: {tags})")
+    console.print(f"[bold green]✓ Log saved![/bold green] (Project: {project}, Status: {status})")
 
 @app.command(name="list")
 def list_logs(
     limit: int = typer.Option(10, help="Number of logs to show"),
     tag: str = typer.Option(None, help="Filter by tag"),
-    grep: str = typer.Option(None, help="Filter by content (simple grep)")
+    grep: str = typer.Option(None, help="Filter by content (simple grep)"),
+    project: str = typer.Option(None, help="Filter by project"),
+    status: str = typer.Option(None, help="Filter by status")
 ):
     """
     List recent logs.
@@ -71,10 +96,22 @@ def list_logs(
     if grep:
         where_clauses.append("content LIKE ?")
         args.append(f"%{grep}%")
+
+    if project:
+        where_clauses.append("project = ?")
+        args.append(project)
+
+    if status:
+        where_clauses.append("status = ?")
+        args.append(status)
         
     where = " AND ".join(where_clauses) if where_clauses else None
     
-    rows = list(db["logs"].rows_where(where, args, order_by="timestamp desc", limit=limit))
+    try:
+        rows = list(db["logs"].rows_where(where, args, order_by="timestamp desc", limit=limit))
+    except Exception as e:
+        console.print(f"[red]Error fetching logs: {e}[/red]")
+        return
     
     if not rows:
         console.print("[yellow]No logs found.[/yellow]")
@@ -82,6 +119,8 @@ def list_logs(
 
     table = Table(title=f"Dev Logs (Last {len(rows)})", border_style="blue")
     table.add_column("Time", style="cyan", no_wrap=True)
+    table.add_column("Project", style="magenta")
+    table.add_column("Status", style="green")
     table.add_column("Content", style="white")
     table.add_column("Tags", style="yellow")
 
@@ -92,31 +131,54 @@ def list_logs(
         if len(content_preview) > 50:
             content_preview = content_preview[:47] + "..."
             
-        table.add_row(dt.strftime("%Y-%m-%d %H:%M"), content_preview, row["tags"])
+        table.add_row(
+            dt.strftime("%Y-%m-%d %H:%M"), 
+            row.get("project", ""), 
+            row.get("status", ""), 
+            content_preview, 
+            row.get("tags", "")
+        )
     
     console.print(table)
 
 @app.command(name="ls")
 def ls_alias(
     limit: int = typer.Option(10, help="Number of logs to show"),
-    tag: str = typer.Option(None, help="Filter by tag")
+    tag: str = typer.Option(None, help="Filter by tag"),
+    grep: str = typer.Option(None, help="Filter by content (simple grep)"),
+    project: str = typer.Option(None, help="Filter by project"),
+    status: str = typer.Option(None, help="Filter by status")
 ):
     """Alias for list"""
-    list_logs(limit=limit, tag=tag)
+    list_logs(limit=limit, tag=tag, grep=grep, project=project, status=status)
 
 @app.command()
 def search(query: str):
     """
-    Search logs using full-text search.
+    Search logs using full-text search with a fallback to LIKE.
     """
     db = get_db()
-    results = list(db["logs"].search(query))
+    results = []
+    
+    # Try FTS first
+    try:
+        results = list(db["logs"].search(query))
+    except Exception:
+        pass
+        
+    # If no FTS results, try case-insensitive LIKE
+    if not results:
+        results = list(db["logs"].rows_where(
+            "content LIKE ? OR tags LIKE ?", 
+            [f"%{query}%", f"%{query}%"],
+            order_by="timestamp desc"
+        ))
     
     if not results:
         console.print("[red]No matches found.[/red]")
         return
         
-    console.print(f"[bold]Found {len(results)} matches:[/bold]")
+    console.print(f"[bold green]Found {len(results)} matches:[/bold green]")
     for row in results:
         dt = datetime.fromisoformat(row["timestamp"])
         panel = Panel(
@@ -139,18 +201,40 @@ def stats():
         console.print("No logs yet.")
         return
 
+    # Activity Heatmap (Last 30 days)
+    from datetime import date, timedelta
+    today = date.today()
+    last_30_days = [today - timedelta(days=i) for i in range(30)]
+    last_30_days.reverse()
+    
+    dates_in_logs = [datetime.fromisoformat(log["timestamp"]).date() for log in all_logs]
+    activity_counts = Counter(dates_in_logs)
+    
+    heatmap_str = ""
+    for d in last_30_days:
+        c = activity_counts.get(d, 0)
+        if c == 0:
+            heatmap_str += "[grey37]□ [/grey37]"
+        elif c < 3:
+            heatmap_str += "[green]■ [/green]"
+        elif c < 6:
+            heatmap_str += "[bold green]■ [/bold green]"
+        else:
+            heatmap_str += "[bold bright_green]■ [/bold bright_green]"
+    
+    console.print(Panel(heatmap_str, title="Activity (Last 30 Days)", subtitle="□:0 ■:1-2 ■:3-5 ■:6+"))
+
     # Tag analysis
     all_tags = []
     for log in all_logs:
-        if log["tags"]:
+        if log.get("tags"):
             tags = [t.strip() for t in log["tags"].split(",") if t.strip()]
             all_tags.extend(tags)
     
     tag_counts = Counter(all_tags).most_common(5)
     
     # Time analysis (logs per day)
-    dates = [datetime.fromisoformat(log["timestamp"]).date() for log in all_logs]
-    date_counts = Counter(dates).most_common(5)
+    date_counts = Counter(dates_in_logs).most_common(5)
 
     console.print(Panel(f"[bold white]Total Entries:[/bold white] [bold green]{count}[/bold green]", title="General Stats"))
     
@@ -163,37 +247,96 @@ def stats():
     console.print(tag_table)
 
 @app.command()
-def export(
-    format: str = typer.Option("markdown", help="Format: markdown or json"),
-    output: str = typer.Option(None, help="Output file path (prints to stdout if omitted)")
+def sync(
+    repo: str = typer.Option(None, help="Git repo URL to sync with"),
+    path: str = typer.Option(None, help="Local backup path")
 ):
     """
-    Export logs to Markdown or JSON.
+    Sync/Backup ~/.devlog.db to a private git repo or local path.
     """
+    if not repo and not path:
+        action = Prompt.ask("Sync to", choices=["git", "local"], default="local")
+        if action == "git":
+            repo = Prompt.ask("Git Repo URL")
+        else:
+            path = Prompt.ask("Local Backup Path", default="~/devlog_backup")
+
+    import shutil
+    db_source = DB_PATH
+    
+    if path:
+        path = os.path.expanduser(path)
+        os.makedirs(path, exist_ok=True)
+        dest = os.path.join(path, "devlog.db")
+        shutil.copy2(db_source, dest)
+        console.print(f"[bold green]✓ Backed up to {dest}[/bold green]")
+    
+    if repo:
+        sync_dir = os.path.expanduser("~/.devlog_sync")
+        if not os.path.exists(sync_dir):
+            os.makedirs(sync_dir)
+            subprocess.run(["git", "init"], cwd=sync_dir)
+            if repo:
+                subprocess.run(["git", "remote", "add", "origin", repo], cwd=sync_dir)
+        
+        shutil.copy2(db_source, os.path.join(sync_dir, "devlog.db"))
+        subprocess.run(["git", "add", "devlog.db"], cwd=sync_dir)
+        subprocess.run(["git", "commit", "-m", f"Sync: {datetime.now().isoformat()}"], cwd=sync_dir)
+        
+        result = subprocess.run(["git", "push", "origin", "main"], cwd=sync_dir, capture_output=True, text=True)
+        if result.returncode == 0:
+            console.print("[bold green]✓ Synced to Git![/bold green]")
+        else:
+            console.print(f"[red]Git push failed: {result.stderr}[/red]")
+
+@app.command()
+def export(
+    format: str = typer.Option(None, help="Format: markdown or json"),
+    output: str = typer.Option(None, help="Output file path")
+):
+    """
+    Export logs to Markdown or JSON (Interactive).
+    """
+    # Interactive Format
+    if not format:
+        format = Prompt.ask("📂 Choose format", choices=["markdown", "json"], default="markdown")
+    
+    # Interactive Output Filename
+    if not output:
+        now = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ext = "md" if format == "markdown" else "json"
+        default_filename = f"devlog_export_{now}.{ext}"
+        
+        output_name = Prompt.ask("📄 Filename", default=default_filename)
+        output_path = Prompt.ask("📍 Path (folder)", default=".")
+        output = os.path.join(output_path, output_name)
+
     db = get_db()
     logs = list(db["logs"].rows_where(order_by="timestamp desc"))
     
+    if not logs:
+        console.print("[yellow]Nothing to export.[/yellow]")
+        return
+
     result = ""
-    
     if format.lower() == "json":
         result = json.dumps(logs, indent=2)
     else:
-        # Markdown format
         result += "# DevLog Export\n\n"
         for log in logs:
             dt = datetime.fromisoformat(log["timestamp"])
             result += f"## {dt.strftime('%Y-%m-%d %H:%M:%S')}\n"
-            if log["tags"]:
+            if log.get("tags"):
                 result += f"**Tags:** `{log['tags']}`\n\n"
             result += f"{log['content']}\n\n"
             result += "---\n\n"
             
-    if output:
+    try:
         with open(output, "w") as f:
             f.write(result)
         console.print(f"[bold green]✓ Exported to {output}[/bold green]")
-    else:
-        print(result)
+    except Exception as e:
+        console.print(f"[red]Failed to export: {e}[/red]")
 
 if __name__ == "__main__":
     app()
