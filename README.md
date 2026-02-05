@@ -32,7 +32,13 @@
 
 ## Installation 📦
 
-### From PyPI (Recommended)
+### Global (Recommended for Linux/macOS)
+The cleanest way to install DevLog as a global tool without managing virtual environments:
+```bash
+pipx install dev-log-cli
+```
+
+### From PyPI
 ```bash
 pip install dev-log-cli
 ```
