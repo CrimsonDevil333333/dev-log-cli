@@ -6,7 +6,7 @@
 
 **DevLog** is a minimalist developer journaling CLI tool designed to help you keep track of your daily work, bugs, and ideas without leaving your terminal. Built with ❤️ by **Satyaa & Clawdy**.
 
-**Status:** 🚀 Available on [PyPI](https://pypi.org/project/dev-log-cli/) | 🤖 **OpenClaw Skill** ready
+**Status:** 🚀 Available on [PyPI](https://pypi.org/project/dev-log-cli/) | 🤖 [**OpenClaw Skill**](https://clawhub.com/skills/devlog-skill) ready
 
 ## New in v3.0 🚀
 
